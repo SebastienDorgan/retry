@@ -1,12 +1,17 @@
 # retry
 
-**retry** is a simple golang retrying module aiming at simplifying the creation of generic retry behavior
+**retry** is a simple golang retrying module aiming at simplifying the creation of generic retry behavior using a fluent interface
 
-# Features
+## Features
 * Fluent interface
 * Specify stop condition
-* Specify timeout during
-* Specify retry interavl
+* Specify timeout duration
+* Specify retry interval duration
+
+## Dependencies
+**retry** use Testify https://github.com/stretchr/testify
+
+## Examples
 
 ```golang
 package retry_test
