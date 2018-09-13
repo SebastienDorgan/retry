@@ -9,7 +9,7 @@
 * Specify retry interval duration
 
 ## Dependencies
-**retry** use Testify https://github.com/stretchr/testify
+**retry** uses Testify https://github.com/stretchr/testify
 
 ## Examples
 
