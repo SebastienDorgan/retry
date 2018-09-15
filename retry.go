@@ -1,6 +1,7 @@
 package retry
 
 import (
+	"math"
 	"sync/atomic"
 	"time"
 )
@@ -17,14 +18,16 @@ type Retry struct {
 	Condition Condition
 	Duration  time.Duration
 	Interval  time.Duration
+	MaxAtt    uint64
 	timeout   bool
 	lastValue interface{}
+	attempt   uint64
 }
 
 //Result stores the result of the retry loop
 type Result struct {
-	Timeout   bool
-	LastValue interface{}
+	Timeout           bool
+	LastReturnedValue interface{}
 }
 
 //With set the action to retry
@@ -32,6 +35,8 @@ func With(action Action) *Retry {
 	return &Retry{
 		Action:    action,
 		Condition: FalseCondition,
+		attempt:   0,
+		MaxAtt:    math.MaxUint64,
 	}
 
 }
@@ -54,6 +59,12 @@ func (r *Retry) For(duration time.Duration) *Retry {
 	return r
 }
 
+//MaxAttempt set the maximum attempts of the retry loop
+func (r *Retry) MaxAttempt(max uint64) *Retry {
+	r.MaxAtt = max
+	return r
+}
+
 //Go starts the retry loop
 func (r *Retry) Go() *Result {
 	end := make(chan bool, 1)
@@ -68,8 +79,8 @@ func (r *Retry) Go() *Result {
 		r.timeout = true
 	}
 	return &Result{
-		Timeout:   r.timeout,
-		LastValue: r.lastValue,
+		Timeout:           r.timeout,
+		LastReturnedValue: r.lastValue,
 	}
 }
 
@@ -85,11 +96,16 @@ func (r *Retry) actionWrapper(stop *atomic.Value) {
 
 func (r *Retry) loop(end chan bool, stop *atomic.Value) {
 	for {
+		if r.attempt >= r.MaxAtt {
+			stop.Store(false)
+		}
 		if stop.Load().(bool) {
 			end <- true
 			break
 		}
 		go r.actionWrapper(stop)
+		r.attempt++
+
 		time.Sleep(r.Interval)
 	}
 
