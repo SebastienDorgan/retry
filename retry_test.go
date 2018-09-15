@@ -8,10 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var countHello = 0
+
 func hello() interface{} {
 	println("hello")
 	time.Sleep(500 * time.Millisecond)
-	return nil
+	countHello++
+	return countHello
 }
 
 func Counter(start, step int) retry.Action {
@@ -41,9 +44,10 @@ func Test(t *testing.T) {
 	//The retry mechanism is under millis precise
 	assert.Equal(t, 10*time.Second, elapse.Truncate(time.Millisecond))
 	assert.True(t, res.Timeout)
+	assert.Equal(t, 10, res.LastReturnedValue.(int))
 
 	//Retry the counter function every 10 seconds for 10 seconds or until condition GreaterThen(10) is satisfied
 	res = retry.With(Counter(0, 2)).For(10 * time.Second).Every(1 * time.Second).Until(GreaterThan(10)).Go()
-	assert.Equal(t, 10, res.LastValue.(int))
+	assert.Equal(t, 10, res.LastReturnedValue.(int))
 	assert.False(t, res.Timeout)
 }
