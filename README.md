@@ -61,7 +61,8 @@ func Test(t *testing.T) {
 	assert.True(t, res.Timeout)
 	assert.Equal(t, uint64(10), res.Attempts)
 
-	res = retry.With(hello).Every(1 * time.Second).For(10 * time.Second).MaxAttempt(5).Go()
+	//If MaxAttempts is used the retry loop stops before the timeout
+	res = retry.With(hello).Every(1 * time.Second).For(10 * time.Second).MaxAttempts(5).Go()
 	assert.False(t, res.Timeout)
 	assert.Equal(t, uint64(5), res.Attempts)
 

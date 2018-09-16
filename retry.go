@@ -60,8 +60,8 @@ func (r *Retry) For(duration time.Duration) *Retry {
 	return r
 }
 
-//MaxAttempt set the maximum attempts of the retry loop
-func (r *Retry) MaxAttempt(max uint64) *Retry {
+//MaxAttempts set the maximum attempts of the retry loop
+func (r *Retry) MaxAttempts(max uint64) *Retry {
 	r.MaxAtt = max
 	return r
 }
