@@ -28,6 +28,7 @@ type Retry struct {
 type Result struct {
 	Timeout           bool
 	LastReturnedValue interface{}
+	Attempts          uint64
 }
 
 //With set the action to retry
@@ -81,6 +82,7 @@ func (r *Retry) Go() *Result {
 	return &Result{
 		Timeout:           r.timeout,
 		LastReturnedValue: r.lastValue,
+		Attempts:          r.attempt,
 	}
 }
 
@@ -97,7 +99,8 @@ func (r *Retry) actionWrapper(stop *atomic.Value) {
 func (r *Retry) loop(end chan bool, stop *atomic.Value) {
 	for {
 		if r.attempt >= r.MaxAtt {
-			stop.Store(false)
+			end <- true
+			break
 		}
 		if stop.Load().(bool) {
 			end <- true

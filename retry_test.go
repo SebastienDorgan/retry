@@ -13,8 +13,7 @@ var countHello = 0
 func hello() interface{} {
 	println("hello")
 	time.Sleep(500 * time.Millisecond)
-	countHello++
-	return countHello
+	return nil
 }
 
 func Counter(start, step int) retry.Action {
@@ -44,7 +43,11 @@ func Test(t *testing.T) {
 	//The retry mechanism is under millis precise
 	assert.Equal(t, 10*time.Second, elapse.Truncate(time.Millisecond))
 	assert.True(t, res.Timeout)
-	assert.Equal(t, 10, res.LastReturnedValue.(int))
+	assert.Equal(t, uint64(10), res.Attempts)
+
+	res = retry.With(hello).Every(1 * time.Second).For(10 * time.Second).MaxAttempt(5).Go()
+	assert.False(t, res.Timeout)
+	assert.Equal(t, uint64(5), res.Attempts)
 
 	//Retry the counter function every 10 seconds for 10 seconds or until condition GreaterThen(10) is satisfied
 	res = retry.With(Counter(0, 2)).For(10 * time.Second).Every(1 * time.Second).Until(GreaterThan(10)).Go()
