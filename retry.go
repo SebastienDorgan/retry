@@ -12,16 +12,20 @@ type Action func() interface{}
 //Condition defines the retry loop stopping condition
 type Condition func(interface{}) bool
 
+//BackoffStrategy returns the delay to apply between attempt and attempt + 1
+type BackoffStrategy func(attempt uint64, interval time.Duration) time.Duration
+
 //Retry defines necessary attributes to retry an action
 type Retry struct {
-	Action    Action
-	Condition Condition
-	Duration  time.Duration
-	Interval  time.Duration
-	MaxAtt    uint64
-	timeout   bool
-	lastValue interface{}
-	attempt   uint64
+	Action          Action
+	Condition       Condition
+	Duration        time.Duration
+	Interval        time.Duration
+	MaxAtt          uint64
+	BackoffStrategy BackoffStrategy
+	timeout         bool
+	lastValue       interface{}
+	attempt         uint64
 }
 
 //Result stores the result of the retry loop
@@ -34,10 +38,12 @@ type Result struct {
 //With set the action to retry
 func With(action Action) *Retry {
 	return &Retry{
-		Action:    action,
-		Condition: FalseCondition,
-		attempt:   0,
-		MaxAtt:    math.MaxUint64,
+		Action:          action,
+		Condition:       FalseCondition,
+		attempt:         0,
+		MaxAtt:          math.MaxUint64,
+		BackoffStrategy: UniformStrategy,
+		Duration:        time.Second * math.MaxInt32,
 	}
 
 }
@@ -63,6 +69,12 @@ func (r *Retry) For(duration time.Duration) *Retry {
 //MaxAttempts set the maximum attempts of the retry loop
 func (r *Retry) MaxAttempts(max uint64) *Retry {
 	r.MaxAtt = max
+	return r
+}
+
+//WithBackoff set the backoff strategy to implement
+func (r *Retry) WithBackoff(strategy BackoffStrategy) *Retry {
+	r.BackoffStrategy = strategy
 	return r
 }
 
@@ -107,9 +119,9 @@ func (r *Retry) loop(end chan bool, stop *atomic.Value) {
 			break
 		}
 		go r.actionWrapper(stop)
+		d := r.BackoffStrategy(r.attempt, r.Interval)
 		r.attempt++
-
-		time.Sleep(r.Interval)
+		time.Sleep(d)
 	}
 
 }
