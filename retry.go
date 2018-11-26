@@ -7,10 +7,10 @@ import (
 )
 
 //Action defines an action to retry against
-type Action func() interface{}
+type Action func() (interface{}, error)
 
 //Condition defines the retry loop stopping condition
-type Condition func(interface{}) bool
+type Condition func(interface{}, error) bool
 
 //BackoffStrategy returns the delay to apply between attempt and attempt + 1
 type BackoffStrategy func(attempt uint64, interval time.Duration) time.Duration
@@ -25,14 +25,16 @@ type Retry struct {
 	BackoffStrategy BackoffStrategy
 	timeout         bool
 	lastValue       interface{}
+	lastError       error
 	attempt         uint64
 }
 
 //Result stores the result of the retry loop
 type Result struct {
-	Timeout           bool
-	LastReturnedValue interface{}
-	Attempts          uint64
+	Timeout   bool
+	LastValue interface{}
+	LastError error
+	Attempts  uint64
 }
 
 //With set the action to retry
@@ -92,9 +94,10 @@ func (r *Retry) Go() *Result {
 		r.timeout = true
 	}
 	return &Result{
-		Timeout:           r.timeout,
-		LastReturnedValue: r.lastValue,
-		Attempts:          r.attempt,
+		Timeout:   r.timeout,
+		LastValue: r.lastValue,
+		LastError: r.lastError,
+		Attempts:  r.attempt,
 	}
 }
 
@@ -102,8 +105,8 @@ func (r *Retry) actionWrapper(stop *atomic.Value) {
 	if stop.Load().(bool) {
 		return
 	}
-	r.lastValue = r.Action()
-	if r.Condition(r.lastValue) {
+	r.lastValue, r.lastError = r.Action()
+	if r.Condition(r.lastValue, r.lastError) {
 		stop.Store(true)
 	}
 }
@@ -124,4 +127,11 @@ func (r *Retry) loop(end chan bool, stop *atomic.Value) {
 		time.Sleep(d)
 	}
 
+}
+
+//NoError NoError wraps a function that do not return error
+func NoError(action func() interface{}) Action {
+	return func() (interface{}, error) {
+		return action(), nil
+	}
 }
