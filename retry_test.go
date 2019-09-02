@@ -1,11 +1,13 @@
 package retry_test
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/SebastienDorgan/retry"
-	"github.com/stretchr/testify/assert"
 )
 
 var countHello = 0
@@ -30,8 +32,20 @@ func GreaterThan(v int) retry.Condition {
 	}
 }
 
+func ComplexAction(shared *atomic.Value, attempt int) retry.Action {
+	return func() (i interface{}, e error) {
+		cpt := shared.Load().(int)
+		if cpt == attempt {
+			number := 42
+			return &number, nil
+		}
+		shared.Store(cpt + 1)
+		return nil, fmt.Errorf("error")
+	}
+}
+
 func Test(t *testing.T) {
-	//run with go test -v -timeout 30s github.com/SebastienDorgan/retry -run ^Test$
+	//run with go test -v -timeout 120s github.com/SebastienDorgan/retry -run ^Test$
 
 	//Retry hello function every seconds for 10 seconds
 	start := time.Now()
@@ -64,4 +78,16 @@ func Test(t *testing.T) {
 	assert.Equal(t, 5, res.LastValue.(int))
 	//31 = 1*2^0 + 1*2^1 + 1*2^2 + 1*2^3 + 1*2^4
 	assert.Equal(t, 31*time.Second, elapse.Truncate(time.Second))
+	v := atomic.Value{}
+	cpt := 0
+	v.Store(cpt)
+	action := ComplexAction(&v, 5)
+	condition := func(v interface{}, err error) bool {
+		return v != nil
+	}
+	ret := retry.With(action).For(5 * time.Minute).Every(10 * time.Second).Until(condition).Go()
+	assert.Equal(t, uint64(6), ret.Attempts)
+	assert.NoError(t, ret.LastError)
+	assert.Equal(t, 42, *ret.LastValue.(*int))
+	assert.False(t, ret.Timeout)
 }
